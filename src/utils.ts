@@ -38,8 +38,9 @@ export default {
       v.local_name = `[${v.serial_id}] ${v.title}`
         .replace(/[\r\n]/g, '')
         .replace(/\s+/g, ' ')
-        .replace(':', '：')
-        .replace('/', '_');
+        .replace(/:/g, '：')
+        .replace(/\//g, '_')
+        .trim();
 
       v.poster = img.getAttribute('data-thumb_url');
       v.thumbs = { length: parseInt(img.getAttribute('data-thumbs'), 10), url: img.getAttribute('data-path') };
@@ -112,8 +113,9 @@ export default {
     v.local_name = `[${v.serial_id}] ${v.title}`
       .replace(/[\r\n]/g, '')
       .replace(/\s+/g, ' ')
-      .replace(':', '：')
-      .replace('/', '_');
+      .replace(/:/g, '：')
+      .replace(/\//g, '_')
+      .trim();
     //
     v.poster = document.head.querySelector("meta[property='og:image']").getAttribute('content');
     try {

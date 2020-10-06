@@ -1,31 +1,36 @@
-import { ActionForDownloadFile, ActionForDownloadFiles } from './base/action-download-files';
+export interface IAttachment {
+    url: string;
+    local_name: string;
+    ext?: string;
+    quality: string;
+    format: string;
+    direct?: boolean;
+}
 export interface IVideo {
     serial_id: string;
     url: string;
     title: string;
     local_name: string;
-    poster: string;
+    duration: string;
+    hd: number;
+    vr: number;
+    promo: string;
     thumbs: {
         length: number;
         url: string;
     };
-    webm: string;
-    video: {
-        quality: number;
-        format: string;
-        videoUrl: string;
-    }[];
-    free: number;
-    pay: string;
-    premium: number;
-    promo: string;
+    s_thumbs: IAttachment[];
+    b_thumbs: IAttachment[];
+    webm: IAttachment;
+    videos: IAttachment[];
+    wantedVideo: IAttachment;
+    isDownloaded: boolean;
 }
 declare const _default: {
-    e_getVideos(sel: string): IVideo[];
-    e_totalPage(sel: string): number;
-    e_getVideoDetail(v?: IVideo): IVideo;
-    e_getVideoVideos(promo: "free" | "pay"): any;
-    getThumbsDownloadAction(v: IVideo, size: string): ActionForDownloadFiles;
-    getWebmDownloadAction(v: IVideo): ActionForDownloadFile;
+    e_list(listSel: string, totalPageSel: string, matchIDs?: string[]): {
+        vs: IVideo[];
+        totalPageID: number;
+    };
+    e_detail(v?: IVideo): IVideo;
 };
 export default _default;

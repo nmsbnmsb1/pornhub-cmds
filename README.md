@@ -1,14 +1,46 @@
 # pornhub-cmds
 
-> fetch pornhub.com content
+> fetch pornhub.com video
 
 # examples
 
-## fetch-video-list
+## login
 
 ```js
 const path = require('path');
-const listCmd = require('./../lib/cmd-list').default;
+const loginCmd = require('./lib/cmd-login').default;
+
+let context = {
+  logs: [],
+  datas: {},
+  errs: {},
+  options: {
+    id: 'Pornhub',
+    name: 'login',
+    downloadPath: path.resolve('downloads'),
+    // browser-config
+    puppeteerApp: path.resolve('chrome-mac/Chromium.app/Contents/MacOS/Chromium'),
+    puppeteerHeadless: false,
+    puppeteerUseSS: true,
+    puppeteerMaxPages: 10,
+    puppeteerPageType: 'noRichContent',
+    // web-config
+    webURL: 'https://cn.pornhub.com',
+    webUsername: '',
+    webPassword: '',
+  },
+};
+
+(async () => {
+  await loginCmd(context).startAsync(context);
+})();
+```
+
+## recommended-list
+
+```js
+const path = require('path');
+const listCmd = require('./lib/cmd-recommended-list').default;
 
 let context = {
   logs: [],
@@ -26,19 +58,21 @@ let context = {
     puppeteerPageType: 'noRichContent',
     // web-config
     webURL: 'https://cn.pornhub.com',
-    webLogin: false,
     webUsername: '',
     webPassword: '',
 
     //IPagesOptions
     listURL: '/recommended',
-    listSelector: {
-      listSel: "div[id='recommendations'] div[class='recommendedVideosContainer'] ul[class*='videos recommendedContainerLoseOne'] li",
-      totalPageSel: "div[id='recommendations'] div[class='recommendedVideosContainer'] div[class='pagination3'] li",
-    },
     listPageID: [1, 1], // from,to
     listQueue: [0, 1], // step,limit
-    listPreview: ['thumb', 'webm'],
+    listPreviews: ['thumb', 'webm'],
+    listStore: async (time, context, pageID, vs) => {
+      if (time === 'list') {
+        console.log(vs);
+      } else if (time === 'step') {
+        // console.log(vs);
+      }
+    },
   },
 };
 
@@ -47,11 +81,11 @@ let context = {
 })();
 ```
 
-## download-videos
+## video-detail
 
 ```js
 const path = require('path');
-const videosCmd = require('./../lib/cmd-videos').default;
+const videosCmd = require('./lib/cmd-videos').default;
 
 let context = {
   logs: [],
@@ -69,20 +103,66 @@ let context = {
     puppeteerPageType: 'noRichContent',
     // web-config
     webURL: 'https://cn.pornhub.com',
-    webLogin: false,
     webUsername: '',
     webPassword: '',
 
     //IVideoOptions
-    videosSerialID: ['phxxxxxxxxxxxxx'],
-    videosPreview: ['thumb'],
-    videosRecommend: true,
-    videosRecommendPreview: ['thumb', 'webm'],
-    videosVideo: true, //{ quality: 720, format: 'mp4' },
+    videoSerialID: [''],
+    videoQueue: [1, 0],
+    videoPreviews: ['thumb'],
+    videoStore: async (time, context, index, v) => {
+      if (time === 'video') {
+        console.log(v);
+      }
+    },
   },
 };
 
 (async () => {
   await videosCmd(context).startAsync(context);
+})();
+```
+
+## download-video
+
+```js
+const path = require('path');
+const downloadCmd = require('./lib/cmd-download-videos').default;
+
+let context = {
+  logs: [],
+  datas: {},
+  errs: {},
+  options: {
+    id: 'Pornhub',
+    name: 'download-video',
+    downloadPath: path.resolve('downloads'),
+    // browser-config
+    puppeteerApp: path.resolve('chrome-mac/Chromium.app/Contents/MacOS/Chromium'),
+    puppeteerHeadless: true,
+    puppeteerUseSS: true,
+    puppeteerMaxPages: 10,
+    puppeteerPageType: 'noRichContent',
+    // web-config
+    webURL: 'https://cn.pornhub.com',
+    webUsername: '',
+    webPassword: '',
+
+    //IVideoOptions
+    videoIDs: [''],
+    videoQueue: [1, 0],
+    videoVideo: true,
+    videoOverwriteM3u8: false,
+    videoVideoTimeout: 60000,
+    videoStore: async (time, context, index, v) => {
+      if (time === 'video') {
+        console.log(v);
+      }
+    },
+  },
+};
+
+(async () => {
+  await downloadCmd(context).startAsync(context);
 })();
 ```

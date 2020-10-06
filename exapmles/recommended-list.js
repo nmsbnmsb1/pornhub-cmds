@@ -1,5 +1,5 @@
 const path = require('path');
-const listCmd = require('./../lib/cmd-list').default;
+const listCmd = require('./../lib/cmd-recommended-list').default;
 
 let context = {
   logs: [],
@@ -17,19 +17,21 @@ let context = {
     puppeteerPageType: 'noRichContent',
     // web-config
     webURL: 'https://cn.pornhub.com',
-    webLogin: false,
     webUsername: '',
     webPassword: '',
 
     //IPagesOptions
     listURL: '/recommended',
-    listSelector: {
-      listSel: "div[id='recommendations'] div[class='recommendedVideosContainer'] ul[class*='videos recommendedContainerLoseOne'] li",
-      totalPageSel: "div[id='recommendations'] div[class='recommendedVideosContainer'] div[class='pagination3'] li",
-    },
     listPageID: [1, 1], // from,to
     listQueue: [0, 1], // step,limit
-    listPreview: ['thumb', 'webm'],
+    listPreviews: ['thumb', 'webm'],
+    listStore: async (time, context, pageID, vs) => {
+      if (time === 'list') {
+        console.log(vs);
+      } else if (time === 'step') {
+        // console.log(vs);
+      }
+    },
   },
 };
 

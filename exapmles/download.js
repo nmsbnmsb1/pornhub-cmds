@@ -1,5 +1,5 @@
 const path = require('path');
-const videosCmd = require('./../lib/cmd-videos').default;
+const downloadCmd = require('./../lib/cmd-download-videos').default;
 
 let context = {
   logs: [],
@@ -7,7 +7,7 @@ let context = {
   errs: {},
   options: {
     id: 'Pornhub',
-    name: 'video',
+    name: 'download-video',
     downloadPath: path.resolve('downloads'),
     // browser-config
     puppeteerApp: path.resolve('chrome-mac/Chromium.app/Contents/MacOS/Chromium'),
@@ -21,9 +21,11 @@ let context = {
     webPassword: '',
 
     //IVideoOptions
-    videoSerialID: [''],
+    videoIDs: [''],
     videoQueue: [1, 0],
-    videoPreviews: ['thumb'],
+    videoVideo: true,
+    videoOverwriteM3u8: false,
+    videoVideoTimeout: 60000,
     videoStore: async (time, context, index, v) => {
       if (time === 'video') {
         console.log(v);
@@ -33,5 +35,5 @@ let context = {
 };
 
 (async () => {
-  await videosCmd(context).startAsync(context);
+  await downloadCmd(context).startAsync(context);
 })();

@@ -2,25 +2,22 @@ import RunQueue from 'me-actions/lib/run-queue';
 import RunStep from 'me-actions/lib/run-step';
 import RunFunc from 'me-actions/lib/run-func';
 import { IContext, IOptions } from './base/context';
-import Puppeteer from './base/puppeteer';
+import PuppeteerUtils from './base/puppeteer';
 import Logger from './base/logger';
-import { ActionForDownloadFile } from './base/action-download-files';
+import { ActionForDownloadFileWithPuppeteer } from './base/action-download-files';
 import utils, { IVideo } from './utils';
 
-export interface IVideosOptions extends IOptions {
-  videosSerialID: string[];
-  videosQueue: number[];
-  videosPreview?: 'thumb'[];
-  videosRecommend?: boolean;
-  videosRecommendPreview?: ('thumb' | 'webm')[];
-  videosVideo?: boolean | { quality: number; format: string };
+export interface IVideoOptions extends IOptions {
+  videoSerialID: string[];
+  videoQueue: number[];
+  videoPreviews?: 'thumb'[];
+  videoStore?: (time: 'video' | 'step', context: any, index?: number, v?: IVideo | IVideo[], range?: { from: number; to: number }) => Promise<any>;
 }
 
 export default class ActionForVideo extends RunStep {
-  private options: IVideosOptions;
+  private options: IVideoOptions;
   private thumbs: RunQueue;
-  private webms: RunQueue;
-  private videos: RunQueue;
+  private storedData: IVideo[];
 
   constructor(ignoreErr: boolean = false, breakWhenErr: boolean = false) {
     super();
@@ -31,145 +28,55 @@ export default class ActionForVideo extends RunStep {
 
   protected async doStart(context: IContext) {
     // 初始化
-    this.options = context.options as IVideosOptions;
-    if (!this.options.videosPreview) this.options.videosPreview = ['thumb'];
-    if (!this.options.videosRecommendPreview) this.options.videosRecommendPreview = ['thumb', 'webm'];
-    if (!this.options.videosQueue) this.options.videosQueue = [1, 0];
-    this.step = this.options.videosQueue[0];
-    this.limit = this.options.videosQueue[1];
+    this.options = context.options as IVideoOptions;
+    if (!this.options.videoPreviews) this.options.videoPreviews = ['thumb'];
+    if (!this.options.videoQueue) this.options.videoQueue = [1, 0];
+    this.step = this.options.videoQueue[0];
+    this.limit = this.options.videoQueue[1];
 
     //迭代器配置
     this.from = 0;
-    this.to = this.options.videosSerialID.length - 1;
+    this.to = this.options.videoSerialID.length - 1;
     this.onBeforeStep = async () => {
-      if (this.options.videosPreview.indexOf('thumb') >= 0 || (this.options.videosRecommend && this.options.videosRecommendPreview.indexOf('thumb') >= 0)) {
-        this.thumbs = new RunQueue(1, 2, true, false);
-      }
-      if (this.options.videosRecommend && this.options.videosRecommendPreview.indexOf('webm') >= 0) {
-        this.webms = new RunQueue(3, 2, true, false);
-      }
-      if (this.options.videosVideo) this.videos = new RunQueue(1, 2, true, false);
+      this.storedData = [];
+      if (this.options.videoPreviews.indexOf('thumb') >= 0) this.thumbs = new RunQueue(4, 2, true, false);
     };
-    this.handleFactory = (i: number) => new RunFunc(() => this.doVideo(context, this.options.videosSerialID[i]));
-    this.onAfterStep = async () => {
-      let all = [];
-      if (this.thumbs && this.thumbs.numChildren() > 0) {
-        all.push(this.thumbs.startAsync(context));
-      }
-      if (this.webms && this.webms.numChildren() > 0) {
-        all.push(this.webms.startAsync(context));
-      }
-      if (this.videos && this.videos.numChildren() > 0) {
-        all.push(this.videos.startAsync(context));
-      }
-      if (all.length > 0) await Promise.all(all);
+    this.handleFactory = (i: number) => new RunFunc(() => this.doVideo(context, i, this.options.videoSerialID[i]));
+    this.onAfterStep = async (range: any) => {
+      if (this.thumbs) await this.thumbs.startAsync(context);
       this.thumbs = undefined;
-      this.webms = undefined;
-      this.videos = undefined;
+      //
+      if (this.options.videoStore) await this.options.videoStore('step', context, -1, this.storedData, range);
     };
     //
     return super.doStart(context);
   }
 
-  protected async doVideo(context: IContext, serialID: string) {
-    const vURL = serialID.startsWith('/') ? serialID : `/view_video.php?viewkey=${serialID}`;
-    const fullURL = `${context.options.webURL}${vURL}`;
-    Logger.info(`打开 ${context.options.name}-${fullURL}`, context);
-
+  protected async doVideo(context: IContext, index: number, serialID: string) {
+    let url = serialID.startsWith('/') ? serialID : `/view_video.php?viewkey=${serialID}`;
+    let v: IVideo = { serial_id: url.substring(url.lastIndexOf('=') + 1), url } as any;
     //
-    const page = await Puppeteer.openPage(context.browser, [Puppeteer.ResTypeScript], fullURL);
-    //detail
-    let v: IVideo = {} as any;
-    v.serial_id = serialID;
-    v.url = vURL;
-    v = await page.evaluate(utils.e_getVideoDetail, v);
+    url = `${context.options.webURL}${url}`;
+    Logger.info(`打开 ${url}`, context);
+    const page = await PuppeteerUtils.openPage(context.browser, [PuppeteerUtils.ResTypeScript], url, true);
+    v = await page.evaluate(utils.e_detail, v as any);
 
     if (v.promo === 'unavaliable' || v.promo === 'premium') {
-      //
     } else {
       //thumbs
-      if (this.options.videosPreview.indexOf('thumb') >= 0) {
-        if (v.poster || v.thumbs) {
-          this.thumbs.addChild(utils.getThumbsDownloadAction(v, 'b'));
-        }
-      }
-      //recommend
-      if (this.options.videosRecommend) {
-        let listSel = "div[id='vpContentContainer'] ul[id='relatedVideosCenter'] li";
-        let rvs: IVideo[] = await page.evaluate(utils.e_getVideos, listSel);
-        //console.log(rvs);
-        if (rvs && rvs.length > 0) {
-          if (this.options.videosRecommendPreview.indexOf('thumb') >= 0) {
-            for (let rv of rvs) {
-              if (!rv.poster && !rv.thumbs) continue;
-              this.thumbs.addChild(utils.getThumbsDownloadAction(rv, 's'));
-            }
-          }
-          if (this.options.videosRecommendPreview.indexOf('webm') >= 0) {
-            for (let rv of rvs) {
-              if (!rv.webm) continue;
-              this.webms.addChild(utils.getWebmDownloadAction(rv));
-            }
-          }
-        }
-      }
-      //video
-      if (this.options.videosVideo) {
-        let videos = await page.evaluate(utils.e_getVideoVideos, v.promo);
-        v.video = videos;
-        //
-        let target: any;
-        if (videos.length > 0) {
-          //如果直接可以下载
-          if (typeof this.options.videosVideo === 'boolean') {
-            // 挑选一个质量最好的视频下载
-            let tmp: any = {};
-            for (const video of videos) {
-              if (!video.videoUrl) continue;
-              if (video.format === 'mp4') {
-                const q = parseInt(video.quality, 10);
-                if (!tmp.mp4 || tmp.mp4.q < q) {
-                  video.q = q;
-                  tmp.mp4 = video;
-                }
-              }
-            }
-            if (tmp.mp4) target = tmp.mp4;
-          } else {
-            for (const video of videos) {
-              if (!video.format && video.quality === this.options.videosVideo.quality) {
-                target = video;
-                break;
-              } else if (!video.quality && video.format === this.options.videosVideo.format) {
-                target = video;
-                break;
-              } else if (video.format === this.options.videosVideo.format && video.quality === this.options.videosVideo.quality) {
-                target = video;
-                break;
-              }
-            }
-          }
-        }
-
-        //
-        if (target) {
-          this.videos.addChild(
-            new ActionForDownloadFile(
-              {
-                url: target.videoUrl,
-                saveRelativePath: `${v.local_name}/${target.quality}`,
-                ext: target.format,
-              },
-              true
-            )
-          );
-        } else {
-          Logger.error(`${this.options.name}-${v.title} 没有适合的格式`, context);
+      if (v.thumbs) {
+        for (let t of v.b_thumbs) {
+          this.thumbs.addChild(new ActionForDownloadFileWithPuppeteer({ url: t.url, saveRelativePath: `${v.local_name}/${t.local_name}`, ext: t.ext }, 60000));
+          //break;
         }
       }
     }
+    await PuppeteerUtils.closePage(page);
     //
-    await Puppeteer.closePage(page);
+    if (this.options.videoStore) {
+      await this.options.videoStore('video', context, index, v);
+    }
+    this.storedData.push(v);
   }
 
   protected async doStop(context: IContext) {
@@ -177,14 +84,6 @@ export default class ActionForVideo extends RunStep {
     if (this.thumbs) {
       this.thumbs.stop(context);
       this.thumbs = undefined;
-    }
-    if (this.webms) {
-      this.webms.stop(context);
-      this.webms = undefined;
-    }
-    if (this.videos) {
-      this.videos.stop(context);
-      this.videos = undefined;
     }
   }
 }

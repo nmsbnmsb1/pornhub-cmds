@@ -1,15 +1,16 @@
 import RunOne from 'me-actions/lib/run-one';
+import RunFunc from 'me-actions/lib/run-func';
 import { IContext } from './base/context';
 import Logger from './base/logger';
 import ActionForBrowser from './base/action-browser';
-import ActionForVideos from './action-videos';
+import ActionForDownloadVideo from './action-download-videos';
 
 export default (context: IContext) => {
   const action = new RunOne(false);
-  action.setName('cmd-videos');
+  action.setName('cmd-download-video');
   // 获取浏览器
   action.addChild(new ActionForBrowser('open'));
-  action.addChild(new ActionForVideos());
+  action.addChild(new ActionForDownloadVideo());
 
   // 清理
   action.watchCatch((result) => {

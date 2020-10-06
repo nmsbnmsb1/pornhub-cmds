@@ -1,4 +1,5 @@
 import puppeteer from 'puppeteer-core';
+export declare function e_commutils(): void;
 export default class Puppeteer {
     static openBrowser(key: string, options: {
         app: string;
@@ -24,9 +25,9 @@ export default class Puppeteer {
     static PageTypeALL: string;
     static PageTypeNoRichContent: string;
     static PageTypeScriptOnly: string;
-    static openPage(browser: puppeteer.Browser, pageType?: string | string[], url?: string): Promise<any>;
+    static openPage(browser: puppeteer.Browser, pageType?: string | string[], url?: string, injectCommUtils?: boolean): Promise<puppeteer.Page>;
     static setPageType(page: puppeteer.Page, pageType?: string | string[]): void;
     static closePage(page: puppeteer.Page): Promise<void>;
-    static handle(browser: puppeteer.Browser, pageType: string | string[], url: string, e: (page: puppeteer.Page) => Promise<any>): Promise<any>;
-    static evaluate(browser: puppeteer.Browser, pageType: string | string[], url: string, e: any, ...eArgs: any[]): Promise<any>;
+    static handle(browser: puppeteer.Browser, pageType: string | string[], url: string, injectCommUtils: boolean, e: (page: puppeteer.Page) => Promise<any>): Promise<any>;
+    static evaluate(browser: puppeteer.Browser, pageType: string | string[], url: string, injectCommUtils: boolean, e: any, ...eArgs: any[]): Promise<any>;
 }

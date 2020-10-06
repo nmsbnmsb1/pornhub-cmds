@@ -16,6 +16,31 @@ const browserMap: {
   };
 } = {};
 
+export function e_commutils() {
+  this.fillZero = (s: any, bits: number) => {
+    s = s.toString();
+    while (s.length < bits) s = `0${s}`;
+    return s;
+  };
+  this.trimInnerText = (innerText: string) => {
+    return innerText
+      .replace(/[\r\n]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+  this.trimLocalName = (localName: string) => {
+    return localName
+      .replace(/[\r\n]/g, '')
+      .replace(/\s+/g, ' ')
+      .replace(/:/g, '：')
+      .replace(/\//g, '_')
+      .trim();
+  };
+  this.localNameFromURL = (url: string) => {
+    return url.substring(url.lastIndexOf('/') + 1, url.lastIndexOf('.'));
+  };
+}
+
 export default class Puppeteer {
   public static async openBrowser(key: string, options: { app: string; headless: boolean; useSS: boolean; userAgent: string; maxPages: number }) {
     // key = `${key}.${options.useProxy ? "proxy" : "noproxy"}`;
@@ -54,7 +79,7 @@ export default class Puppeteer {
   public static async closeBrowser(browser: puppeteer.Browser, wait: number = 0) {
     const key = (browser as any).$puppeteer_browser_key;
     if (!browserMap[key]) return;
-    //
+    // 延后1秒删除
     browserMap[key].used--;
     if (browserMap[key].used <= 0) {
       if (wait > 0) await TimeUtils.sleep(wait);
@@ -89,7 +114,7 @@ export default class Puppeteer {
   public static PageTypeScriptOnly = 'scriptOnly';
 
   // 打开页面
-  public static async openPage(browser: puppeteer.Browser, pageType: string | string[] = '', url?: string) {
+  public static async openPage(browser: puppeteer.Browser, pageType: string | string[] = '', url?: string, injectCommUtils: boolean = false) {
     // 找一个空闲的page
     const key = (browser as any).$puppeteer_browser_key;
     if (!browserMap[key]) return;
@@ -104,7 +129,7 @@ export default class Puppeteer {
       page.$puppeteer_goto = page.goto;
       page.goto = async (url: string, options: any) => {
         const resp = await page.$puppeteer_goto(url, options);
-        await page.waitFor(1500);
+        await page.waitForTimeout(1500);
         return resp;
       };
       await page.setRequestInterception(true);
@@ -152,9 +177,13 @@ export default class Puppeteer {
           timeout: 60000,
         });
       }
+      if (injectCommUtils) {
+        await page.evaluate(e_commutils);
+      }
     }
-    return page;
+    return page as puppeteer.Page;
   }
+
   public static setPageType(page: puppeteer.Page, pageType: string | string[] = '') {
     (page as any).$puppeteer_page_type = pageType;
   }
@@ -177,8 +206,14 @@ export default class Puppeteer {
     browserMap[key].pages.push(page);
   }
 
-  public static async handle(browser: puppeteer.Browser, pageType: string | string[], url: string, e: (page: puppeteer.Page) => Promise<any>) {
-    const page = await Puppeteer.openPage(browser, pageType, url);
+  public static async handle(
+    browser: puppeteer.Browser,
+    pageType: string | string[],
+    url: string,
+    injectCommUtils: boolean,
+    e: (page: puppeteer.Page) => Promise<any>
+  ) {
+    const page = await Puppeteer.openPage(browser, pageType, url, injectCommUtils);
     let result: any;
     try {
       result = await e(page);
@@ -189,8 +224,8 @@ export default class Puppeteer {
     return result;
   }
 
-  public static async evaluate(browser: puppeteer.Browser, pageType: string | string[], url: string, e: any, ...eArgs: any[]) {
-    const page = await Puppeteer.openPage(browser, pageType, url);
+  public static async evaluate(browser: puppeteer.Browser, pageType: string | string[], url: string, injectCommUtils: boolean, e: any, ...eArgs: any[]) {
+    const page = await Puppeteer.openPage(browser, pageType, url, injectCommUtils);
     let result: any;
     try {
       result = await page.evaluate(e, ...eArgs);
